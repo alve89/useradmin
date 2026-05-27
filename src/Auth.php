@@ -6,12 +6,14 @@ final class Auth
 {
     public static function login(array $config, string $username, string $password): bool
     {
-        $expectedUser = (string)$config['admin']['username'];
-        $hash = (string)$config['admin']['password_hash'];
+        $username = strtolower(trim($username));
+        $admins = $config['admins'] ?? [];
 
-        if (!hash_equals($expectedUser, $username)) {
+        if ($username === '' || !isset($admins[$username])) {
             return false;
         }
+
+        $hash = (string)($admins[$username]['password_hash'] ?? '');
 
         if ($hash === '' || $hash === 'HIER_PASSWORD_HASH_EINTRAGEN') {
             return false;
@@ -21,11 +23,10 @@ final class Auth
             return false;
         }
 
-
         session_regenerate_id(true);
 
-
         $_SESSION['admin_user'] = $username;
+        $_SESSION['admin_display_name'] = (string)($admins[$username]['display_name'] ?? $username);
         $_SESSION['login_time'] = time();
 
         return true;
@@ -56,4 +57,12 @@ final class Auth
     {
         return $_SESSION['admin_user'] ?? null;
     }
+
+public static function displayName(): ?string
+{
+    return $_SESSION['admin_display_name'] ?? self::user();
+}
+
+
+
 }
