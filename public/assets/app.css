@@ -298,3 +298,86 @@ code {
 .button-secondary:hover {
     background: #d8e9e4;
 }
+
+.undo-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 320px;
+    max-width: calc(100vw - 32px);
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: #17231f;
+    color: #ffffff;
+    box-shadow: 0 18px 60px rgba(15, 23, 42, 0.28);
+}
+
+.undo-toast form {
+    margin: 0;
+}
+
+.undo-button {
+    background: #ffffff;
+    color: var(--primary);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-weight: 800;
+}
+
+.undo-button:hover {
+    background: #eef6f3;
+}
+
+.undo-close {
+    background: transparent;
+    color: #ffffff;
+    padding: 4px 6px;
+    border-radius: 8px;
+    font-size: 22px;
+    line-height: 1;
+}
+
+.undo-close:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 600px) {
+    .undo-toast {
+        width: calc(100vw - 24px);
+        bottom: 14px;
+        justify-content: space-between;
+    }
+}
+
+
+.danger-modal h2 {
+    color: var(--danger);
+}
+
+.delete-user-summary {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #f8fbfa;
+    margin: 12px 0 14px;
+}
+
+.delete-user-summary span {
+    color: var(--muted);
+}
+
+.danger-button {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+.danger-button:hover {
+    background: #8f1d14;
+}

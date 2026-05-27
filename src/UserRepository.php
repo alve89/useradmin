@@ -109,8 +109,25 @@ final class UserRepository
 
     public function delete(int $id): void
     {
-        $stmt = $this->db->prepare('DELETE FROM sso_users WHERE id = ?');
+        $stmt = $this->db->prepare('UPDATE sso_users SET deleted_at = NOW() WHERE id = ?');
         $stmt->execute([$id]);
+    }
+
+    public function restore(int $id): void
+    {
+        $stmt = $this->db->prepare('UPDATE sso_users SET deleted_at = NULL WHERE id = ?');
+        $stmt->execute([$id]);
+    }
+
+    public function purgeDeletedOlderThanDays(int $days = 30): void
+    {
+        $stmt = $this->db->prepare(
+            'DELETE FROM sso_users
+            WHERE deleted_at IS NOT NULL
+            AND deleted_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
+        );
+
+        $stmt->execute([$days]);
     }
 
     private function mapUserData(array $data): array
@@ -172,4 +189,35 @@ final class UserRepository
 
         return array_column($stmt->fetchAll(), 'name');
     }
+
+public function hardDelete(int $id): void
+{
+    $stmt = $this->db->prepare('DELETE FROM sso_users WHERE id = ?');
+    $stmt->execute([$id]);
+}
+
+
+public function findIncludingDeleted(int $id): ?array
+{
+    $stmt = $this->db->prepare('SELECT * FROM sso_users WHERE id = ?');
+    $stmt->execute([$id]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        return null;
+    }
+
+    $user['group_ids'] = $this->groupIdsForUser($id);
+    $user['groups'] = $this->groupsForUser($id);
+
+    return $user;
+}
+
+
+
+
+
+
+
+
 }

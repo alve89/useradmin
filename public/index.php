@@ -395,15 +395,47 @@ try {
 
             Csrf::verify($config);
 
-            $deleteId = (int)($_POST['id'] ?? 0);
-            $users->delete($deleteId);
+            try {
+                $deleteId = (int)($_POST['id'] ?? 0);
+                $kas2fa = (string)($_POST['kas_2fa'] ?? '');
 
-            Logger::info($config, 'User deleted', [
-                'id' => $deleteId,
-            ]);
+                $user = $users->findIncludingDeleted($deleteId);
 
-            redirect_to($config, '/?r=users');
+                if (!$user) {
+                    throw new UserVisibleException('Der Benutzer wurde nicht gefunden.');
+                }
 
+                if ($kas2fa === '') {
+                    throw new UserVisibleException('Bitte gib den KAS-2FA-Code ein, um Benutzer und Postfach endgültig zu löschen.');
+                }
+
+                $kas->deleteMailAccountByAddress(
+                    (string)$user['imap_user'],
+                    $kas2fa
+                );
+
+                $users->hardDelete($deleteId);
+
+                Logger::info($config, 'User and mail account deleted', [
+                    'id' => $deleteId,
+                    'uid' => (string)$user['uid'],
+                    'mail' => (string)$user['mail'],
+                ]);
+
+                redirect_to($config, '/?r=users');
+            } catch (UserVisibleException $e) {
+                Logger::warning($config, 'User-visible delete error', [
+                    'route' => $route,
+                    'message' => $e->getMessage(),
+                ]);
+
+                View::render($config, 'users_index', [
+                    'users' => $users->all(),
+                    'error' => $e->getMessage(),
+                ]);
+                exit;
+            }
+        
         case 'groups':
             View::render($config, 'groups_index', [
                 'groups' => $groups->all(),
