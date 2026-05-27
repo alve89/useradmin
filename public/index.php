@@ -486,8 +486,18 @@ if (!Auth::check() && $route === 'password-reset-approve') {
                 try {
                     $password = validate_posted_password(true);
 
+                    $uid = (string)($_POST['uid'] ?? '');
+                    $mail = (string)($_POST['mail'] ?? '');
+                    $imapUser = (string)($_POST['imap_user'] ?? '');
+
+                    if ($users->existsByUidMailOrImapUser($uid, $mail, $imapUser)) {
+                        throw new UserVisibleException(
+                            'Ein Benutzer mit dieser UID, E-Mail-Adresse oder diesem IMAP-User existiert bereits.'
+                        );
+                    }
+
                     $kas->createMailAccount(
-                        (string)$_POST['mail'],
+                        $mail,
                         (string)$password,
                         (string)($_POST['kas_2fa'] ?? '')
                     );
@@ -514,7 +524,24 @@ if (!Auth::check() && $route === 'password-reset-approve') {
                         'error' => $e->getMessage(),
                     ]);
                     exit;
+                } catch (PDOException $e) {
+                    Logger::warning($config, 'User-create database error', [
+                        'route' => $route,
+                        'message' => $e->getMessage(),
+                    ]);
+
+                    $message = 'Der Benutzer konnte nicht angelegt werden. Bitte prüfe, ob UID, E-Mail-Adresse oder IMAP-User bereits existieren.';
+
+                    View::render($config, 'users_form', [
+                        'user' => posted_user_for_form(),
+                        'groups' => $groups->all(),
+                        'defaultQuota' => $config['app']['default_quota'] ?? '512 MB',
+                        'mailSuffix' => $config['app']['mail_domain_suffix'] ?? '@die-kerwe.de',
+                        'error' => $message,
+                    ]);
+                    exit;
                 }
+                
             }
 
             View::render($config, 'users_form', [

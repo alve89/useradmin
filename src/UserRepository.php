@@ -244,7 +244,24 @@ public function findByUidOrMail(string $identifier): ?array
     return $user ?: null;
 }
 
+public function existsByUidMailOrImapUser(string $uid, string $mail, string $imapUser): bool
+{
+    $stmt = $this->db->prepare(
+        'SELECT COUNT(*)
+         FROM sso_users
+         WHERE LOWER(uid) = LOWER(?)
+            OR LOWER(mail) = LOWER(?)
+            OR LOWER(imap_user) = LOWER(?)'
+    );
 
+    $stmt->execute([
+        trim($uid),
+        trim($mail),
+        trim($imapUser),
+    ]);
+
+    return (int)$stmt->fetchColumn() > 0;
+}
 
 
 
