@@ -6,7 +6,6 @@ $value = static fn(string $key, string $default = ''): string => h($isEdit ? ($u
 
 <div class="page-head">
     <h1><?= $isEdit ? 'Benutzer bearbeiten' : 'Benutzer anlegen' ?></h1>
-    <a href="<?= h(app_url($config, '/?r=users')) ?>">Zurück</a>
 </div>
 
 <section class="card">
@@ -154,8 +153,10 @@ $value = static fn(string $key, string $default = ''): string => h($isEdit ? ($u
         <textarea name="notes" rows="4"><?= $value('notes') ?></textarea>
         
         <input id="kas_2fa" name="kas_2fa" type="hidden" value="">
-
         <button id="saveUserButton" type="submit">Speichern</button>
+        <p>
+            <a href="<?= h(app_url($config, '/?r=users')) ?>">Zurück</a>
+        </p>
     </form>
     <div id="kas2faModal" class="modal-backdrop" hidden>
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="kas2faTitle">
