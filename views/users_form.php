@@ -15,13 +15,19 @@ $value = static fn(string $key, string $default = ''): string => h($isEdit ? ($u
             <?= h($error) ?>
         </div>
     <?php endif; ?>
-    <form method="post" data-user-form="1">
+    <form method="post" data-user-form="1" data-is-edit="<?= $isEdit ? '1' : '0' ?>" data-mail-suffix="<?= h($mailSuffix) ?>">
         <?= Csrf::field($config) ?>
 
         <div class="grid">
             <div>
                 <label>UID</label>
-                <input name="uid" value="<?= $value('uid') ?>" placeholder="vorname.nachname" required>
+                <input
+                    id="uid"
+                    name="uid"
+                    value="<?= $value('uid') ?>"
+                    placeholder="vorname.nachname"
+                    required
+                >
             </div>
 
             <div>
@@ -34,32 +40,66 @@ $value = static fn(string $key, string $default = ''): string => h($isEdit ? ($u
 
             <div>
                 <label>Vorname</label>
-                <input name="given_name" value="<?= $value('given_name') ?>" required>
+                <input
+                    id="given_name"
+                    name="given_name"
+                    value="<?= $value('given_name') ?>"
+                    required
+                >
             </div>
 
             <div>
                 <label>Nachname</label>
-                <input name="family_name" value="<?= $value('family_name') ?>" required>
+                <input
+                    id="family_name"
+                    name="family_name"
+                    value="<?= $value('family_name') ?>"
+                    required
+                >
             </div>
 
             <div>
                 <label>Anzeigename</label>
-                <input name="display_name" value="<?= $value('display_name') ?>" placeholder="wird sonst aus Vor-/Nachname gebildet">
+                <input
+                    id="display_name"
+                    name="display_name"
+                    value="<?= $value('display_name') ?>"
+                    placeholder="wird sonst aus Vor-/Nachname gebildet"
+                >
             </div>
 
             <div>
                 <label>Quota</label>
-                <input name="quota" value="<?= $value('quota', (string)$defaultQuota) ?>" required>
+                <input
+                    id="quota"
+                    name="quota"
+                    value="<?= $value('quota', (string)$defaultQuota) ?>"
+                    required
+                >
             </div>
 
             <div>
                 <label>E-Mail</label>
-                <input name="mail" value="<?= $value('mail') ?>" placeholder="vorname.nachname<?= h($mailSuffix) ?>" required>
+                <input
+                    id="mail"
+                    name="mail"
+                    value="<?= $value('mail') ?>"
+                    placeholder="vorname.nachname<?= h($mailSuffix) ?>"
+                    type="email"
+                    required
+                >
             </div>
 
             <div>
                 <label>IMAP-User</label>
-                <input name="imap_user" value="<?= $value('imap_user') ?>" placeholder="vorname.nachname<?= h($mailSuffix) ?>" required>
+                <input 
+                    id="imap_user"
+                    name="imap_user"
+                    value="<?= $value('imap_user') ?>"
+                    placeholder="vorname.nachname<?= h($mailSuffix) ?>"
+                    type="email" 
+                    required
+                >
             </div>
 
             <div>

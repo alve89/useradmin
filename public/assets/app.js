@@ -8,6 +8,65 @@
     const cancelButton = document.getElementById('kas2faCancel');
     const confirmButton = document.getElementById('kas2faConfirm');
 
+    const uidInput = document.getElementById('uid');
+    const givenNameInput = document.getElementById('given_name');
+    const familyNameInput = document.getElementById('family_name');
+    const displayNameInput = document.getElementById('display_name');
+    const mailInput = document.getElementById('mail');
+    const imapUserInput = document.getElementById('imap_user');
+
+    const isEdit = form && form.dataset.isEdit === '1';
+    const mailSuffix = form ? (form.dataset.mailSuffix || '@die-kerwe.de') : '@die-kerwe.de';
+
+    function titleCase(value) {
+        if (!value) {
+            return '';
+        }
+
+        return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    }
+
+    function deriveUserFieldsFromUid() {
+        if (!form || isEdit || !uidInput) {
+            return;
+        }
+
+        const uid = uidInput.value.trim().toLowerCase();
+
+        if (uid === '') {
+            return;
+        }
+
+        const parts = uid.split('.').filter(Boolean);
+        const firstName = titleCase(parts[0] || '');
+        const lastName = titleCase(parts.slice(1).join(' ') || '');
+
+        if (givenNameInput && givenNameInput.value.trim() === '') {
+            givenNameInput.value = firstName;
+        }
+
+        if (familyNameInput && familyNameInput.value.trim() === '') {
+            familyNameInput.value = lastName;
+        }
+
+        if (displayNameInput && displayNameInput.value.trim() === '') {
+            displayNameInput.value = [firstName, lastName].filter(Boolean).join(' ');
+        }
+
+        if (mailInput && mailInput.value.trim() === '') {
+            mailInput.value = uid + mailSuffix;
+        }
+
+        if (imapUserInput && imapUserInput.value.trim() === '') {
+            imapUserInput.value = uid + mailSuffix;
+        }
+    }
+
+    if (uidInput && !isEdit) {
+        uidInput.addEventListener('blur', deriveUserFieldsFromUid);
+        uidInput.addEventListener('change', deriveUserFieldsFromUid);
+    }
+
     let confirmed = false;
 
     if (!form || !passwordInput || !passwordConfirmInput || !hidden2faInput || !modal || !modalInput || !cancelButton || !confirmButton) {

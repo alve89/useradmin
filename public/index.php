@@ -107,6 +107,55 @@ Logger::info($config, 'Request started', [
     'method' => $method,
 ]);
 
+
+function deriveUserPostFields(array $post, array $config): array
+{
+    $uid = strtolower(trim((string)($post['uid'] ?? '')));
+    $mailSuffix = (string)($config['app']['mail_domain_suffix'] ?? '@die-kerwe.de');
+
+    if ($uid === '') {
+        return $post;
+    }
+
+    $parts = array_values(array_filter(explode('.', $uid), static fn($part) => $part !== ''));
+
+    $firstName = '';
+    $lastName = '';
+
+    if (isset($parts[0])) {
+        $firstName = ucfirst(strtolower($parts[0]));
+    }
+
+    if (count($parts) > 1) {
+        $lastName = implode(' ', array_map(
+            static fn($part) => ucfirst(strtolower($part)),
+            array_slice($parts, 1)
+        ));
+    }
+
+    if (trim((string)($post['given_name'] ?? '')) === '') {
+        $post['given_name'] = $firstName;
+    }
+
+    if (trim((string)($post['family_name'] ?? '')) === '') {
+        $post['family_name'] = $lastName;
+    }
+
+    if (trim((string)($post['display_name'] ?? '')) === '') {
+        $post['display_name'] = trim($post['given_name'] . ' ' . $post['family_name']);
+    }
+
+    if (trim((string)($post['mail'] ?? '')) === '') {
+        $post['mail'] = $uid . $mailSuffix;
+    }
+
+    if (trim((string)($post['imap_user'] ?? '')) === '') {
+        $post['imap_user'] = $uid . $mailSuffix;
+    }
+
+    return $post;
+}
+
 /**
  * Prüft Passwort und Wiederholung. Wenn $required = true ist, müssen beide Felder
  * gesetzt sein. Wenn $required = false ist, wird nur geprüft, sobald eines der
@@ -237,6 +286,7 @@ try {
         case 'user-new':
             if ($method === 'POST') {
                 Csrf::verify($config);
+                $_POST = deriveUserPostFields($_POST, $config);
 
                 try {
                     $password = validate_posted_password(true);
