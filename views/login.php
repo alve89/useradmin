@@ -9,6 +9,10 @@
     <form method="post">
         <?= Csrf::field($config) ?>
 
+        <?php if (!empty($_GET['return'])): ?>
+            <input type="hidden" name="return" value="<?= h((string)$_GET['return']) ?>">
+        <?php endif; ?>
+
         <label>Benutzername</label>
         <input name="username" type="text" autocomplete="username" autofocus required>
 

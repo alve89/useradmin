@@ -213,7 +213,36 @@ public function findIncludingDeleted(int $id): ?array
     return $user;
 }
 
+public function findByUidOrMail(string $identifier): ?array
+{
+    $identifier = strtolower(trim($identifier));
 
+    if ($identifier === '') {
+        return null;
+    }
+
+    $stmt = $this->db->prepare(
+        'SELECT *
+         FROM sso_users
+         WHERE enabled = 1
+           AND (
+                LOWER(uid) = ?
+             OR LOWER(mail) = ?
+             OR LOWER(imap_user) = ?
+           )
+         LIMIT 1'
+    );
+
+    $stmt->execute([
+        $identifier,
+        $identifier,
+        $identifier,
+    ]);
+
+    $user = $stmt->fetch();
+
+    return $user ?: null;
+}
 
 
 

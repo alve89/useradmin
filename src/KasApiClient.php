@@ -402,6 +402,31 @@ public function createMailAccount(string $mailAddress, string $newPassword, stri
     }
 
     $this->callCreateMailAccountSession($kasLogin, $token, $apiWsdl, $mailAddress, $newPassword);
+
+    try {
+        $resolvedMailLogin = $this->waitForMailAccountReady(
+            $kasLogin,
+            $token,
+            $apiWsdl,
+            $mailAddress
+        );
+
+        $this->updateMailAccountSpamfilter(
+            $kasLogin,
+            $token,
+            $apiWsdl,
+            $resolvedMailLogin
+        );
+    } catch (UserVisibleException $e) {
+        Logger::warning($this->config, 'KAS post-create processing skipped', [
+            'mail_address' => $mailAddress,
+            'message' => $e->getMessage(),
+        ]);
+
+        // Wichtig:
+        // Nicht erneut werfen. Das Mailkonto wurde bereits angelegt.
+        // User-Erstellung in MariaDB darf weiterlaufen.
+    }
     
     $resolvedMailLogin = $this->waitForMailAccountReady(
         $kasLogin,
@@ -659,7 +684,7 @@ private function waitForMailAccountReady(
     }
 
     throw new UserVisibleException(
-        'Das Mailkonto wurde angelegt, ist bei KAS aber noch nicht fertig verarbeitet. Bitte warte kurz und speichere den Benutzer danach erneut.'
+        'Das Mailkonto wurde angelegt, ist bei KAS aber noch nicht fertig verarbeitet. Die Nachbearbeitung wird später erneut möglich sein.'
     );
 }
 

@@ -86,6 +86,9 @@ require dirname(__DIR__) . '/src/GroupRepository.php';
 require dirname(__DIR__) . '/src/KasApiClient.php';
 require dirname(__DIR__) . '/src/UserVisibleException.php';
 require dirname(__DIR__) . '/src/BruteForce.php';
+require dirname(__DIR__) . '/src/PasswordResetRequestRepository.php';
+require dirname(__DIR__) . '/src/Mailer.php';
+require dirname(__DIR__) . '/src/PasswordCrypto.php';
 
 session_name((string)($config['security']['session_name'] ?? 'KERWE_USERADMIN'));
 
@@ -242,6 +245,14 @@ try {
                     'ip_address' => $ipAddress,
                 ]);
 
+                $returnTo = (string)($_POST['return'] ?? $_GET['return'] ?? $_SESSION['after_login_redirect'] ?? '');
+                unset($_SESSION['after_login_redirect']);
+
+                if ($returnTo !== '' && strpos($returnTo, '/') === 0 && strpos($returnTo, '//') !== 0) {
+                    header('Location: ' . $returnTo);
+                    exit;
+                }
+
                 redirect_to($config, '/?r=users');
             }
 
@@ -268,6 +279,190 @@ try {
         Auth::logout();
         redirect_to($config, '/?r=login');
     }
+
+
+if ($route === 'password-forgot') {
+    $db = Database::connect($config);
+    $users = new UserRepository($db);
+    $passwordResetRequests = new PasswordResetRequestRepository($db);
+
+    $genericMessage = 'Falls ein passendes Konto existiert, wurde eine E-Mail mit einem Reset-Link versendet.';
+
+    if ($method === 'POST') {
+        Csrf::verify($config);
+
+        $ipAddress = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $identifier = (string)($_POST['identifier'] ?? '');
+
+        $passwordResetRequests->cleanupExpired();
+
+        $maxRequests = (int)($config['password_reset']['max_requests_per_ip_per_hour'] ?? 5);
+        $recentRequests = $passwordResetRequests->countRecentRequestsByIp($ipAddress, 60);
+
+        if ($recentRequests >= $maxRequests) {
+            Logger::warning($config, 'Password reset rate limit reached', [
+                'ip_address' => $ipAddress,
+            ]);
+
+            View::render($config, 'password_forgot', [
+                'message' => $genericMessage,
+            ]);
+            exit;
+        }
+
+        $user = $users->findByUidOrMail($identifier);
+
+        if ($user) {
+            try {
+                $token = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $token);
+
+                $lifetimeMinutes = (int)($config['password_reset']['request_token_lifetime_minutes'] ?? 30);
+
+                $passwordResetRequests->createRequest(
+                    (int)$user['id'],
+                    $tokenHash,
+                    $ipAddress,
+                    $lifetimeMinutes
+                );
+
+                $resetUrl = app_url($config, '/?r=password-reset&token=' . urlencode($token));
+
+                Mailer::sendPasswordResetMail($config, $user, $resetUrl);
+
+                Logger::info($config, 'Password reset mail sent', [
+                    'user_id' => (int)$user['id'],
+                    'uid' => (string)$user['uid'],
+                    'mail' => (string)$user['mail'],
+                ]);
+            } catch (Throwable $e) {
+                Logger::exception($config, $e, [
+                    'route' => $route,
+                    'context' => 'password reset request',
+                ]);
+
+                // Keine technische Fehlermeldung an den User.
+                // Sonst könnten Rückschlüsse auf Existenz oder Mailzustellung entstehen.
+            }
+        } else {
+            Logger::info($config, 'Password reset requested for unknown identifier', [
+                'ip_address' => $ipAddress,
+            ]);
+        }
+
+        View::render($config, 'password_forgot', [
+            'message' => $genericMessage,
+        ]);
+        exit;
+    }
+
+    View::render($config, 'password_forgot');
+    exit;
+}
+
+if ($route === 'password-reset') {
+    $db = Database::connect($config);
+    $passwordResetRequests = new PasswordResetRequestRepository($db);
+
+    $token = (string)($_GET['token'] ?? $_POST['token'] ?? '');
+
+    if ($token === '') {
+        View::render($config, 'password_reset', [
+            'error' => 'Der Reset-Link ist ungültig oder abgelaufen.',
+            'done' => true,
+        ]);
+        exit;
+    }
+
+    /*
+     * Diese Methode ergänzen wir im nächsten Schritt:
+     * Sie lädt einen gültigen Reset-Request anhand des request_token_hash.
+     */
+    $resetRequest = $passwordResetRequests->findValidRequestByToken($token);
+
+    if (!$resetRequest) {
+        View::render($config, 'password_reset', [
+            'error' => 'Der Reset-Link ist ungültig oder abgelaufen.',
+            'done' => true,
+        ]);
+        exit;
+    }
+
+    if ($method === 'POST') {
+        Csrf::verify($config);
+
+        try {
+            $password = (string)($_POST['password'] ?? '');
+            $passwordConfirm = (string)($_POST['password_confirm'] ?? '');
+
+            if ($password === '' || $passwordConfirm === '') {
+                throw new UserVisibleException('Bitte gib das neue Passwort in beiden Feldern ein.');
+            }
+
+            if ($password !== $passwordConfirm) {
+                throw new UserVisibleException('Die beiden Passwörter stimmen nicht überein.');
+            }
+
+            if (mb_strlen($password) < 10) {
+                throw new UserVisibleException('Das Passwort muss mindestens 10 Zeichen lang sein.');
+            }
+
+            $encrypted = PasswordCrypto::encrypt($config, $password);
+
+            $approveToken = bin2hex(random_bytes(32));
+            $approveTokenHash = hash('sha256', $approveToken);
+
+            $approvalLifetimeHours = (int)($config['password_reset']['approval_lifetime_hours'] ?? 24);
+
+            $passwordResetRequests->markPendingAdmin(
+                (int)$resetRequest['id'],
+                $approveTokenHash,
+                $encrypted['encrypted_password'],
+                $encrypted['encryption_nonce'],
+                $approvalLifetimeHours
+            );
+
+            $approvalUrl = app_url($config, '/?r=password-reset-approve&token=' . urlencode($approveToken));
+
+            Mailer::sendPasswordResetApprovalMail($config, $resetRequest, $approvalUrl);
+
+            Logger::info($config, 'Password reset pending admin approval', [
+                'reset_request_id' => (int)$resetRequest['id'],
+                'user_id' => (int)$resetRequest['user_id'],
+                'uid' => (string)$resetRequest['uid'],
+            ]);
+
+            View::render($config, 'password_reset', [
+                'message' => 'Deine Passwortänderung wurde vorgemerkt und wartet auf Admin-Freigabe.',
+                'done' => true,
+            ]);
+            exit;
+        } catch (UserVisibleException $e) {
+            View::render($config, 'password_reset', [
+                'token' => $token,
+                'error' => $e->getMessage(),
+            ]);
+            exit;
+        }
+    }
+
+    View::render($config, 'password_reset', [
+        'token' => $token,
+    ]);
+    exit;
+}
+
+
+if (!Auth::check() && $route === 'password-reset-approve') {
+    $returnTo = (string)($_SERVER['REQUEST_URI'] ?? '/?r=users');
+
+    if ($returnTo === '' || strpos($returnTo, '/') !== 0) {
+        $returnTo = '/?r=users';
+    }
+
+    redirect_to($config, '/?r=login&return=' . urlencode($returnTo));
+}
+
 
     Auth::requireLogin($config);
 
@@ -503,6 +698,116 @@ try {
             ]);
 
             redirect_to($config, '/?r=groups');
+
+        case 'password-reset-approve':
+            $passwordResetRequests = new PasswordResetRequestRepository($db);
+
+            $token = (string)($_GET['token'] ?? $_POST['token'] ?? '');
+
+            if ($token === '') {
+                View::render($config, 'password_reset_approve', [
+                    'error' => 'Der Freigabe-Link ist ungültig oder abgelaufen.',
+                    'done' => true,
+                ]);
+                break;
+            }
+
+            $resetRequest = $passwordResetRequests->findPendingApprovalByToken($token);
+
+            if (!$resetRequest) {
+                View::render($config, 'password_reset_approve', [
+                    'error' => 'Der Freigabe-Link ist ungültig, abgelaufen oder wurde bereits verwendet.',
+                    'done' => true,
+                ]);
+                break;
+            }
+
+            if ($method === 'POST') {
+                Csrf::verify($config);
+
+                try {
+                    $kas2fa = (string)($_POST['kas_2fa'] ?? '');
+
+                    if ($kas2fa === '') {
+                        throw new UserVisibleException('Bitte gib den KAS-2FA-Code ein.');
+                    }
+
+                    $plainPassword = PasswordCrypto::decrypt(
+                        $config,
+                        (string)$resetRequest['encrypted_password'],
+                        (string)$resetRequest['encryption_nonce']
+                    );
+
+                    $kas->updateMailPassword(
+                        (string)$resetRequest['imap_user'],
+                        $plainPassword,
+                        $kas2fa
+                    );
+
+                    // Passwort möglichst schnell aus dem RAM entfernen.
+                    if (function_exists('sodium_memzero')) {
+                        sodium_memzero($plainPassword);
+                    } else {
+                        $plainPassword = '';
+                    }
+
+                    $passwordResetRequests->markCompleted(
+                        (int)$resetRequest['id'],
+                        (string)Auth::user()
+                    );
+
+                    Logger::info($config, 'Password reset approved and completed', [
+                        'reset_request_id' => (int)$resetRequest['id'],
+                        'user_id' => (int)$resetRequest['user_id'],
+                        'uid' => (string)$resetRequest['uid'],
+                        'approved_by' => (string)Auth::user(),
+                    ]);
+
+                    View::render($config, 'password_reset_approve', [
+                        'message' => 'Die Passwortänderung wurde freigegeben und erfolgreich umgesetzt.',
+                        'done' => true,
+                    ]);
+                    break;
+                } catch (UserVisibleException $e) {
+                    Logger::warning($config, 'User-visible password reset approval error', [
+                        'reset_request_id' => (int)$resetRequest['id'],
+                        'message' => $e->getMessage(),
+                    ]);
+
+                    View::render($config, 'password_reset_approve', [
+                        'token' => $token,
+                        'resetRequest' => $resetRequest,
+                        'error' => $e->getMessage(),
+                    ]);
+                    break;
+                } catch (Throwable $e) {
+                    Logger::exception($config, $e, [
+                        'route' => $route,
+                        'reset_request_id' => (int)$resetRequest['id'],
+                    ]);
+
+                    View::render($config, 'password_reset_approve', [
+                        'token' => $token,
+                        'resetRequest' => $resetRequest,
+                        'error' => 'Die Passwortänderung konnte nicht umgesetzt werden.',
+                    ]);
+                    break;
+                } finally {
+                    if (isset($plainPassword) && is_string($plainPassword) && $plainPassword !== '') {
+                        if (function_exists('sodium_memzero')) {
+                            sodium_memzero($plainPassword);
+                        } else {
+                            $plainPassword = '';
+                        }
+                    }
+                }
+            }
+
+            View::render($config, 'password_reset_approve', [
+                'token' => $token,
+                'resetRequest' => $resetRequest,
+            ]);
+            break;
 
         default:
             http_response_code(404);
