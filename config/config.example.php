@@ -5,7 +5,8 @@ declare(strict_types=1);
 return [
     'app' => [
         // Absolute installation path of the tool.
-        'base_path' => '/absolute/path/to/useradmin/',
+        // By default, this resolves to the project root directory.
+        'base_path' => dirname(__DIR__) . '/',
 
         // Public base URL without a trailing slash.
         // Examples:
