@@ -290,7 +290,7 @@ try {
 
 if ($route === 'password-forgot') {
     $db = Database::connect($config);
-    $users = new UserRepository($db);
+    $users = new UserRepository($db, $config);
     $passwordResetRequests = new PasswordResetRequestRepository($db);
 
     $genericMessage = 'Falls ein passendes Konto existiert, wurde eine E-Mail mit einem Reset-Link versendet.';
@@ -474,7 +474,7 @@ if (!Auth::check() && $route === 'password-reset-approve') {
     Auth::requireLogin($config);
 
     $db = Database::connect($config);
-    $users = new UserRepository($db);
+    $users = new UserRepository($db, $config);
     $groups = new GroupRepository($db);
     $kas = new KasApiClient($config);
 

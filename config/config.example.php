@@ -121,4 +121,9 @@ return [
             'admin@example.com',
         ],
     ],
+
+    'database' => [
+        'table_prefix' => 'ua_',
+    ],
+
 ];

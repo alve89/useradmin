@@ -29,11 +29,11 @@ final class BruteForce
          */
         $stmt = $this->db->prepare(
             'SELECT COUNT(*) AS cnt
-             FROM admin_login_attempts
-             WHERE username = ?
-               AND ip_address = ?
-               AND success = 0
-               AND attempted_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)'
+            FROM ' . db_table($this->config, 'admin_login_attempts') . '
+            WHERE username = ?
+            AND ip_address = ?
+            AND success = 0
+            AND attempted_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)'
         );
 
         $stmt->execute([
@@ -56,7 +56,7 @@ final class BruteForce
 
         $stmt = $this->db->prepare(
             'SELECT attempted_at
-             FROM admin_login_attempts
+             FROM ' . db_table($this->config, 'admin_login_attempts') . '
              WHERE username = ?
                AND ip_address = ?
                AND success = 0

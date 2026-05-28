@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 final class UserRepository
 {
-    public function __construct(private PDO $db)
+    private PDO $db;
+    private array $config;
+
+    public function __construct(PDO $db, array $config)
     {
+        $this->db = $db;
+        $this->config = $config;
     }
 
     public function all(): array
     {
         $users = $this->db
-            ->query('SELECT * FROM sso_users ORDER BY family_name ASC, given_name ASC, uid ASC')
+            ->query('SELECT * FROM ' . db_table($this->config, 'sso_users') . ' ORDER BY family_name ASC, given_name ASC, uid ASC')
             ->fetchAll();
 
         foreach ($users as &$user) {
@@ -23,7 +28,7 @@ final class UserRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->db->prepare('SELECT * FROM sso_users WHERE id = ?');
+        $stmt = $this->db->prepare('SELECT * FROM ' . db_table($this->config, 'sso_users') . ' WHERE id = ?');
         $stmt->execute([$id]);
         $user = $stmt->fetch();
 
@@ -39,7 +44,7 @@ final class UserRepository
 
     public function findByUid(string $uid): ?array
     {
-        $stmt = $this->db->prepare('SELECT * FROM sso_users WHERE uid = ?');
+        $stmt = $this->db->prepare('SELECT * FROM ' . db_table($this->config, 'sso_users') . ' WHERE uid = ?');
         $stmt->execute([$uid]);
         $user = $stmt->fetch();
 
@@ -58,7 +63,7 @@ final class UserRepository
 
         try {
             $stmt = $this->db->prepare(
-                'INSERT INTO sso_users
+                'INSERT INTO ' . db_table($this->config, 'sso_users') . '
                 (uid, enabled, given_name, family_name, display_name, mail, imap_user, quota, notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
@@ -84,7 +89,7 @@ final class UserRepository
             $values[] = $id;
 
             $stmt = $this->db->prepare(
-                'UPDATE sso_users SET
+                'UPDATE ' . db_table($this->config, 'sso_users') . ' SET
                     uid = ?,
                     enabled = ?,
                     given_name = ?,
@@ -109,20 +114,20 @@ final class UserRepository
 
     public function delete(int $id): void
     {
-        $stmt = $this->db->prepare('UPDATE sso_users SET deleted_at = NOW() WHERE id = ?');
+        $stmt = $this->db->prepare('UPDATE ' . db_table($this->config, 'sso_users') . ' SET deleted_at = NOW() WHERE id = ?');
         $stmt->execute([$id]);
     }
 
     public function restore(int $id): void
     {
-        $stmt = $this->db->prepare('UPDATE sso_users SET deleted_at = NULL WHERE id = ?');
+        $stmt = $this->db->prepare('UPDATE ' . db_table($this->config, 'sso_users') . ' SET deleted_at = NULL WHERE id = ?');
         $stmt->execute([$id]);
     }
 
     public function purgeDeletedOlderThanDays(int $days = 30): void
     {
         $stmt = $this->db->prepare(
-            'DELETE FROM sso_users
+            'DELETE FROM ' . db_table($this->config, 'sso_users') . '
             WHERE deleted_at IS NOT NULL
             AND deleted_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
         );
@@ -170,7 +175,7 @@ final class UserRepository
 
     private function groupIdsForUser(int $userId): array
     {
-        $stmt = $this->db->prepare('SELECT group_id FROM sso_user_groups WHERE user_id = ?');
+        $stmt = $this->db->prepare('SELECT group_id FROM ' . db_table($this->config, 'sso_user_groups') . ' WHERE user_id = ?');
         $stmt->execute([$userId]);
 
         return array_map('intval', array_column($stmt->fetchAll(), 'group_id'));
@@ -180,8 +185,8 @@ final class UserRepository
     {
         $stmt = $this->db->prepare(
             'SELECT g.name
-             FROM sso_groups g
-             JOIN sso_user_groups ug ON ug.group_id = g.id
+             FROM ' . db_table($this->config, 'sso_groups') . ' g
+             JOIN ' . db_table($this->config, 'sso_user_groups') . ' ug ON ug.group_id = g.id
              WHERE ug.user_id = ?
              ORDER BY g.name ASC'
         );
@@ -192,14 +197,14 @@ final class UserRepository
 
 public function hardDelete(int $id): void
 {
-    $stmt = $this->db->prepare('DELETE FROM sso_users WHERE id = ?');
+    $stmt = $this->db->prepare('DELETE FROM ' . db_table($this->config, 'sso_users') . ' WHERE id = ?');
     $stmt->execute([$id]);
 }
 
 
 public function findIncludingDeleted(int $id): ?array
 {
-    $stmt = $this->db->prepare('SELECT * FROM sso_users WHERE id = ?');
+    $stmt = $this->db->prepare('SELECT * FROM ' . db_table($this->config, 'sso_users') . ' WHERE id = ?');
     $stmt->execute([$id]);
     $user = $stmt->fetch();
 
@@ -223,7 +228,7 @@ public function findByUidOrMail(string $identifier): ?array
 
     $stmt = $this->db->prepare(
         'SELECT *
-         FROM sso_users
+         FROM ' . db_table($this->config, 'sso_users') . '
          WHERE enabled = 1
            AND (
                 LOWER(uid) = ?
@@ -248,7 +253,7 @@ public function existsByUidMailOrImapUser(string $uid, string $mail, string $ima
 {
     $stmt = $this->db->prepare(
         'SELECT COUNT(*)
-         FROM sso_users
+         FROM ' . db_table($this->config, 'sso_users') . '
          WHERE LOWER(uid) = LOWER(?)
             OR LOWER(mail) = LOWER(?)
             OR LOWER(imap_user) = LOWER(?)'

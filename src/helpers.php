@@ -35,3 +35,19 @@ function redirect_to(array $config, string $path): never
     header('Location: ' . app_url($config, $path));
     exit;
 }
+
+
+function db_table(array $config, string $table): string
+{
+    $prefix = (string)($config['database']['table_prefix'] ?? '');
+
+    if ($prefix !== '' && !preg_match('/^[a-zA-Z0-9_]+$/', $prefix)) {
+        throw new RuntimeException('Ungültiger database.table_prefix.');
+    }
+
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+        throw new RuntimeException('Ungültiger Tabellenname.');
+    }
+
+    return '`' . $prefix . $table . '`';
+}

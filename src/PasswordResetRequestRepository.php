@@ -120,14 +120,14 @@ public function findPendingApprovalByToken(string $token): ?array
 
     $stmt = $this->db->prepare(
         'SELECT prr.*, u.uid, u.given_name, u.family_name, u.display_name, u.mail, u.imap_user
-         FROM password_reset_requests prr
-         INNER JOIN sso_users u ON u.id = prr.user_id
-         WHERE prr.approve_token_hash = ?
-           AND prr.status = ?
-           AND prr.expires_at > NOW()
-           AND prr.encrypted_password IS NOT NULL
-           AND prr.encryption_nonce IS NOT NULL
-         LIMIT 1'
+        FROM ' . db_table($this->config, 'password_reset_requests') . ' prr
+        INNER JOIN ' . db_table($this->config, 'sso_users') . ' u ON u.id = prr.user_id
+        WHERE prr.approve_token_hash = ?
+        AND prr.status = ?
+        AND prr.expires_at > NOW()
+        AND prr.encrypted_password IS NOT NULL
+        AND prr.encryption_nonce IS NOT NULL
+        LIMIT 1'
     );
 
     $stmt->execute([
@@ -143,7 +143,7 @@ public function findPendingApprovalByToken(string $token): ?array
 public function markCompleted(int $id, string $approvedBy): void
 {
     $stmt = $this->db->prepare(
-        'UPDATE password_reset_requests
+        'UPDATE ' . db_table($this->config, 'password_reset_requests') . '
          SET status = ?,
              approved_by = ?,
              approved_at = NOW(),
@@ -165,7 +165,7 @@ public function markCompleted(int $id, string $approvedBy): void
 public function clearSensitiveData(int $id): void
 {
     $stmt = $this->db->prepare(
-        'UPDATE password_reset_requests
+        'UPDATE ' . db_table($this->config, 'password_reset_requests') . '
          SET encrypted_password = NULL,
              encryption_nonce = NULL
          WHERE id = ?'

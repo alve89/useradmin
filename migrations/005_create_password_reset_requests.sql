@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `{{prefix}}password_reset_requests` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `request_token_hash` char(64) NOT NULL,
+  `approve_token_hash` char(64) DEFAULT NULL,
+  `encrypted_password` text DEFAULT NULL,
+  `encryption_nonce` varchar(64) DEFAULT NULL,
+  `status` enum('requested','pending_admin','completed','expired','cancelled') NOT NULL DEFAULT 'requested',
+  `requested_ip` varchar(45) DEFAULT NULL,
+  `approved_by` varchar(190) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_reset_request_token` (`request_token_hash`),
+  UNIQUE KEY `uq_reset_approve_token` (`approve_token_hash`),
+  KEY `idx_reset_user` (`user_id`),
+  KEY `idx_reset_status` (`status`),
+  KEY `idx_reset_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

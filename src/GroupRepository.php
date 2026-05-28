@@ -17,7 +17,7 @@ final class GroupRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->db->prepare('SELECT * FROM sso_groups WHERE id = ?');
+        $stmt = $this->db->prepare('SELECT * FROM ' . db_table($this->config, 'sso_groups') . ' WHERE id = ?');
         $stmt->execute([$id]);
         $row = $stmt->fetch();
 
@@ -26,7 +26,7 @@ final class GroupRepository
 
     public function create(array $data): void
     {
-        $stmt = $this->db->prepare('INSERT INTO sso_groups (name, description) VALUES (?, ?)');
+        $stmt = $this->db->prepare('INSERT INTO ' . db_table($this->config, 'sso_groups') . ' (name, description) VALUES (?, ?)');
         $stmt->execute([
             trim((string)$data['name']),
             trim((string)($data['description'] ?? '')) ?: null,
@@ -35,7 +35,7 @@ final class GroupRepository
 
     public function update(int $id, array $data): void
     {
-        $stmt = $this->db->prepare('UPDATE sso_groups SET name = ?, description = ? WHERE id = ?');
+        $stmt = $this->db->prepare('UPDATE ' . db_table($this->config, 'sso_groups') . ' SET name = ?, description = ? WHERE id = ?');
         $stmt->execute([
             trim((string)$data['name']),
             trim((string)($data['description'] ?? '')) ?: null,
@@ -45,7 +45,7 @@ final class GroupRepository
 
     public function delete(int $id): void
     {
-        $stmt = $this->db->prepare('DELETE FROM sso_groups WHERE id = ?');
+        $stmt = $this->db->prepare('DELETE FROM ' . db_table($this->config, 'sso_groups') . ' WHERE id = ?');
         $stmt->execute([$id]);
     }
 }
